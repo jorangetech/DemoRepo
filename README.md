@@ -1,9 +1,11 @@
-Shopping List
+# PLUGIN:  Shopping List
+
+## (Add helpful information here)
+
+-
+-
+-
 
 
-Under construction
-
-
-
-
-Feb 2026
+### Author: JAM @ J'OrangeTech
+### Feb 2026

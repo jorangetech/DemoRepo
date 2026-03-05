@@ -18,25 +18,28 @@ using static ConsoleSystem;
   TODO LIST:
 
     BUGS:
-        gathering wood - on chop of tree the gather didnt register done
-        remove the STATUS field the UI; future TODO
+        gathering wood - on chop of tree the gather didnt register done -- looked into, appears to be an issue with
+        how the hook works?
         
-    TODO - remove all unnecessary debug messages
-    TODO - comment where required;  confirm comments are sufficient
-    TODO - wrap dev/debug messages with a conditional and use a global DEBUGMODE flag to display them; similar with ERROR msgs
+    TODOs:
+        Complete STATUS column to give visual representation that item is complete. Colored button on/off?
+ 
+    DONE - remove all unnecessary debug messages
+    DONE - comment where required;  confirm comments are sufficient
+    DONE - wrap dev/debug messages with a conditional and use a global DEBUGMODE flag to display them; similar with ERROR msgs
             -- this is just to exist so demoing can be done without the clutter; this sort of thing would not exist for production
             except for specific scenarios.
 
-    WIP - add applicable toast messages
+    VERIFY DONE - add applicable toast messages
     DONE - add done flag to each item
     DONE - add done flag to list as a whole
     
-    CONFIG -- add req data; remove temp data; clean up; add button text
+    DONE --- CONFIG -- add req data; remove temp data; clean up; add button text
         review the "item string" being used, do we need to change?
 
-    COMMANDS -- clean/organize
+    DONE --- COMMANDS -- clean/organize
 
-    clean up how CreateDefaultData() should work -- used to quickly a data file if main funcationality is broken
+    DONE --- clean up how CreateDefaultData() should work -- used to quickly a data file if main funcationality is broken
 
     GATHERING
         DONE - maybe add pickup-ables (wood,etc)
@@ -44,7 +47,7 @@ using static ConsoleSystem;
 
     NEED QTY and HAVE QTY
         DONE - set done flag based on have >= need; fixed bug where flag would not flip back if player updated NEED qty
-        TODO - set shopping list done flag based on all done flags - not necessary at the moment
+        NOT REQD - set shopping list done flag based on all done flags - not necessary at the moment
         DONE - qty updates
         DONE - edit the NEED via UI
         TODO - review setting default NEED values
@@ -55,6 +58,16 @@ using static ConsoleSystem;
         DONE -- make the rendering of rows dynamic -- only if there is time
 
         TODO FUTURE -- add UI data rows to config and draw that way - tons of work
+
+    
+    AFTER DEMO
+        add a way to add an item in the list?
+        remove an item? or just reset the list?
+        maybe if no list exists when player opens UI, add wood as default and inform to hit/gather stuff
+        to have items added to list and they can adjust once in list?
+
+
+
 
 **********************************************/
 #endregion
@@ -72,7 +85,7 @@ namespace Oxide.Plugins {
         private const int defaultNeedQty = 10000;
 
         private const bool DEV_MODE = true;     //  any dev msgs will be displayed (console and chat)
-        private const bool PROD_MODE = true;    //  supercedes DEV_MODE; only valid warn/error msgs displayed (console and chat)
+        private const bool PROD_MODE = false;    //  supercedes DEV_MODE; only valid warn/error msgs displayed (console and chat)
 
         #endregion  //  VARS
 
@@ -107,13 +120,12 @@ namespace Oxide.Plugins {
             //[JsonProperty(PropertyName = "itemsTBDFutureList")]
             //public Dictionary<string, string> itemsTBDFutureList = new Dictionary<string, string>();
 
-            //  TODO add toast message text here
-            //[JsonProperty(PropertyName = "toastText01")]
-            //public string toastText01 = "Congrats! You have gathered the {item.needQty} {item.name} you needed. done flag: {item.done}";
-            //[JsonProperty(PropertyName = "toastText02")]
-            //public string toastText02 = "Currently, there is no Shopping List data for {player.displayName}. GO HIT A TREE! Using default values for now.";
+            //  Toast messages
+            [JsonProperty(PropertyName = "toastMessage01")]
+            public string toastMessage01 = "Currently, there is no Shopping List data for {player.displayName}. GO HIT A TREE! Using default values for now.";
 
-            //  TODO add UI button text here
+            [JsonProperty(PropertyName = "toastMessage02")]
+            public string toastMessage02 = "Congrats! You have gathered the {item.needQty} {item.name} you needed.";
         }
 
         private bool LoadConfigVariables() {
@@ -130,6 +142,7 @@ namespace Oxide.Plugins {
 
         void Init() {
             permission.RegisterPermission(permAdmin, this);
+            permission.RegisterPermission(permUse, this);
             if (!LoadConfigVariables()) {
                 Puts("(Init) Config file issue detected. Delete file or check syntax/fix.");
                 return;
@@ -474,10 +487,13 @@ namespace Oxide.Plugins {
 
             //  if no shopping list exists for the player, display error message; for now default used to display something, but not valid/nor saved
             //      TODO: add usage of default data and create the data and read the data
+
             if (!storedData.PlayerShoppingList.ContainsKey(player.UserIDString)) {
                 //  there is no player data, use defaults (DISPLAY ONLY - will not be saved)
-                player.SendConsoleCommand("gametip.showtoast", 1, $"Currently, there is no Shopping List data for {player.displayName}. GO HIT A TREE! Using default values for now.");
-
+                var messageText = configData.toastMessage01;
+                messageText = messageText.Replace($"{{player.displayName}}", player.displayName);
+                player.SendConsoleCommand("gametip.showtoast", 1, $"{messageText}");
+            
             } else {
 
                 //  Base values for AnchorMin/Max; defined as strings and whendynamically incrementing convert to number and back to string
@@ -860,8 +876,13 @@ namespace Oxide.Plugins {
 
             //  display toast message when player has collected what they needed - check if done so not to display repeatedly
             if (!status && item.haveQty >= item.needQty) {
-                if (isDevMode()) Puts($"[DEVMSG] Congrats! You have gathered the {item.needQty} {item.name} you needed. done flag: {item.done}");
-                player.SendConsoleCommand("gametip.showtoast", 2, $"Congrats! You have gathered the {item.needQty} {item.name} you needed.");
+
+                var messageText = configData.toastMessage02;
+                messageText = messageText.Replace($"{{item.needQty}}", item.needQty.ToString());
+                messageText = messageText.Replace($"{{item.name}}", item.name);
+
+                if (isDevMode()) Puts($"[DEVMSG] {messageText}");
+                player.SendConsoleCommand("gametip.showtoast", 2, $"{messageText}");
 
                 status = true;
             } else {
